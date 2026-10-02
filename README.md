@@ -20,58 +20,58 @@ Most NGO websites are cluttered. There is no clean, reliable place to discover v
 
 ## Our Solution
 
-BookMySeva is a simple, focused platform built around three layers:
+BookMySeva is built on three clear layers:
 
 ### 1. Trust
-Every NGO is manually verified using their official Government Darpan ID. Only verified organisations appear on the platform — clearly marked with a verification badge.
+Every NGO is manually verified using their official Government **Darpan ID**. Only verified organisations appear on the platform, clearly marked with a verification badge.
 
 ### 2. Discovery
-A clean feed of NGO activities, filterable by category, city, and urgency.  
-Plus a **Top 100** ranking of NGOs based on trust score, activity, and impact.
+A clean feed of NGO activities that you can filter by category, city, or urgency.  
+We also feature a **Top 100** ranking based on trust score, activity, and impact.
 
 ### 3. Action
-Every post has two clear buttons:
-- **Book My Seva** → Takes you directly to the NGO’s official payment page
+Every post has two simple buttons:
+- **Book My Seva** → Redirects to the NGO’s official payment page
 - **Register for Seva** → Opens their volunteer Google Form
 
-We never handle money. We never store user data. We take zero commission.  
-Every rupee goes straight to the organisation.
+We never handle money.  
+We never store user data.  
+We take zero commission.  
+Every rupee goes directly to the organisation.
 
 ---
 
-## How It Works
+## How People Use It
 
-**For Viewers**  
-No account needed. Browse freely, filter what matters to you, save posts locally, and act in one click.
-
-**For NGOs**  
-Get verified once. Then post updates, share impact numbers, and reach people who are ready to help.
-
-**For Admins**  
-We carefully verify every organisation against the official NITI Aayog Darpan portal before they go live.
+- **Viewers** — No login required. Browse, filter, save posts locally, and act in one click.
+- **NGOs** — Get verified once, then post updates and share real impact.
+- **Admins** — Manually verify every organisation against the official NITI Aayog Darpan portal.
 
 ---
 
 ## Why BookMySeva is Different
 
-- Zero login friction for users
-- Zero payment processing (no middleman)
+- Zero login friction
+- Zero payment processing (true zero middleman)
 - Only government-verified NGOs
-- Clean, focused experience instead of cluttered directories
-- Clear language built around “Seva” — an act of service
+- Clean experience instead of cluttered directories
+- Language built around “Seva” — an act of service
 
 ---
 
 ## Tech Stack
 
-- **Frontend**: React (Vite) + plain CSS  
-- **Backend**: Spring Boot + Java 21  
-- **Database**: MySQL (Aiven)  
-- **Deployment**: Vercel (frontend) + Render (backend)  
-- **Monitoring**: Uptime Robot  
-- **Version Control**: GitHub  
+| Layer       | Technology                      |
+|-------------|---------------------------------|
+| Frontend    | React (Vite) + Plain CSS        |
+| Backend     | Spring Boot + Java 21           |
+| Database    | MySQL (Aiven)                   |
+| Deployment  | Vercel (Frontend) + Render (Backend) |
+| Monitoring  | Uptime Robot                    |
+| Version Control | GitHub                       |
 
-We deliberately kept the system simple and reliable so the focus stays on trust and action.
+We intentionally kept the architecture simple and reliable so the focus stays on trust and action.  
+All impact numbers are human-entered and human-verified.
 
 ---
 
@@ -79,9 +79,19 @@ We deliberately kept the system simple and reliable so the focus stays on trust 
 
 Only three tables:
 
-1. Administrators  
-2. Verified NGOs (profile, Darpan ID, trust score, links)  
-3. Posts (activities, impact numbers, goals, media)
+1. **admin** – Platform administrators  
+2. **ngos** – Verified organisations (Darpan ID, trust score, links)  
+3. **posts** – Activities, impact numbers, funding goals, and volunteer needs
+
+---
+
+## Core Features
+
+- Verified NGO feed with filters (Category, City, Most Needed)
+- Top 100 NGO ranking
+- One-click redirect to donation page or volunteer form
+- Clean NGO profile pages
+- Local “Save for Seva” (no login needed)
 
 ---
 
@@ -95,4 +105,5 @@ Only three tables:
 
 **BookMySeva**  
 Discover. Verify. Act.  
-Book your act of service.
+
+**Book your act of service.**
