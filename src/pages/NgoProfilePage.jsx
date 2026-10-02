@@ -6,7 +6,7 @@ import PostCard from '../components/PostCard';
 import VerifiedBadge from '../components/VerifiedBadge';
 import DonutChart from '../components/DonutChart';
 import GaugeChart from '../components/GaugeChart';
-import { getNgoById } from '../api/api';
+import { getNgoById, parseJsonSafe } from '../api';
 
 export default function NgoProfilePage() {
   const { id } = useParams();
@@ -14,7 +14,7 @@ export default function NgoProfilePage() {
 
   const [ngo, setNgo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     fetchNgo();
@@ -22,11 +22,13 @@ export default function NgoProfilePage() {
 
   const fetchNgo = async () => {
     setLoading(true);
+    setErrorMessage('');
     try {
       const data = await getNgoById(id);
       setNgo(data);
     } catch (err) {
-      setError(err.message || 'NGO not found');
+      console.error('Failed to fetch NGO profile from backend:', err);
+      setErrorMessage(err.message || 'Failed to fetch NGO');
     } finally {
       setLoading(false);
     }
@@ -38,21 +40,24 @@ export default function NgoProfilePage() {
         <Header />
         <div style={{ textAlign: 'center', padding: '5rem 0', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: '2.5rem' }}>🏢</div>
-          <p>Loading NGO profile...</p>
+          <p>Loading NGO profile from backend...</p>
         </div>
         <Footer />
       </div>
     );
   }
 
-  if (error || !ngo) {
+  if (errorMessage || !ngo) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Header />
-        <div className="container" style={{ padding: '4rem 1rem', textAlign: 'center' }}>
+        <div className="container" style={{ padding: '4rem 1.25rem', textAlign: 'center' }}>
+          <div className="alert-box alert-red" style={{ maxWidth: '600px', margin: '0 auto 2rem', textAlign: 'left' }}>
+            <span>🚨 Connection failed: {errorMessage || 'NGO not found'}</span>
+          </div>
           <h2>NGO Not Found</h2>
           <p style={{ color: 'var(--text-muted)', margin: '1rem 0' }}>
-            We could not find the NGO profile you requested.
+            Could not retrieve profile for NGO #{id} from the database.
           </p>
           <button onClick={() => navigate(-1)} className="btn-primary">
             ← Go Back
@@ -66,24 +71,52 @@ export default function NgoProfilePage() {
   const {
     name,
     description,
+    logoEmoji,
     logo_emoji,
     category,
     location,
+    foundedYear,
     founded_year,
+    darpanId,
     darpan_id,
+    trustScore,
     trust_score,
+    heroImageUrl,
     hero_image_url,
+    websiteUrl,
     website_url,
+    youtubeUrl,
     youtube_url,
+    instagramUrl,
     instagram_url,
-    team_members = [],
-    funds_breakdown = {},
+    teamMembers,
+    team_members,
+    fundsBreakdown,
+    funds_breakdown,
     posts = [],
-    total_impact = 0,
-    total_raised = 0,
-    total_posts = 0,
+    total_impact,
+    total_raised,
+    total_posts,
     status,
   } = ngo;
+
+  // IMPORTANT: teamMembers & fundsBreakdown can be JSON strings
+  const parsedTeamMembers = parseJsonSafe(teamMembers || team_members, []);
+  const parsedFundsBreakdown = parseJsonSafe(fundsBreakdown || funds_breakdown, {});
+
+  const finalHeroImage = heroImageUrl || hero_image_url || 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1200&auto=format&fit=crop&q=80';
+  const finalDarpanId = darpanId || darpan_id || 'Pending';
+  const finalTrustScore = trustScore !== undefined ? trustScore : (trust_score !== undefined ? trust_score : 90);
+  const finalFoundedYear = foundedYear || founded_year;
+  const finalLogo = logoEmoji || logo_emoji || '🏢';
+  const finalWebsite = websiteUrl || website_url;
+  const finalYoutube = youtubeUrl || youtube_url;
+  const finalInstagram = instagramUrl || instagram_url;
+
+  const ngoPosts = Array.isArray(posts) ? posts : [];
+  const impactCount = total_impact !== undefined ? total_impact : ngoPosts.reduce((acc, p) => acc + (p.impact_count || 0), 0);
+  const raisedCount = total_raised !== undefined ? total_raised : ngoPosts.reduce((acc, p) => acc + (p.funds_raised || 0), 0);
+  const activitiesCount = total_posts !== undefined ? total_posts : ngoPosts.length;
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -114,7 +147,7 @@ export default function NgoProfilePage() {
           }}
         >
           <img
-            src={hero_image_url || 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1200&auto=format&fit=crop&q=80'}
+            src={finalHeroImage}
             alt={`${name} cover`}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
@@ -157,7 +190,7 @@ export default function NgoProfilePage() {
                   boxShadow: 'var(--shadow-sm)',
                 }}
               >
-                {logo_emoji || '🏢'}
+                {finalLogo}
               </div>
 
               <div>
@@ -173,10 +206,10 @@ export default function NgoProfilePage() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.35rem', flexWrap: 'wrap' }}>
                   <span>📍 {location || 'India'}</span>
-                  {founded_year && <span>· Est. {founded_year}</span>}
+                  {finalFoundedYear && <span>· Est. {finalFoundedYear}</span>}
                   <span>·</span>
                   <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
-                    🏛️ Darpan: <code>{darpan_id || 'Pending'}</code>
+                    🏛️ Darpan: <code>{finalDarpanId}</code>
                   </span>
                 </div>
               </div>
@@ -184,9 +217,9 @@ export default function NgoProfilePage() {
 
             {/* Connect Links */}
             <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-              {website_url && (
+              {finalWebsite && (
                 <a
-                  href={website_url}
+                  href={finalWebsite}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-outline"
@@ -195,9 +228,9 @@ export default function NgoProfilePage() {
                   🌐 Website
                 </a>
               )}
-              {youtube_url && (
+              {finalYoutube && (
                 <a
-                  href={youtube_url}
+                  href={finalYoutube}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-outline"
@@ -206,9 +239,9 @@ export default function NgoProfilePage() {
                   📺 YouTube
                 </a>
               )}
-              {instagram_url && (
+              {finalInstagram && (
                 <a
-                  href={instagram_url}
+                  href={finalInstagram}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-outline"
@@ -273,21 +306,21 @@ export default function NgoProfilePage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', marginBottom: '2rem' }}>
           <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-card)', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
             <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--emerald-main)', fontFamily: 'var(--font-heading)' }}>
-              {Number(total_impact || 0).toLocaleString('en-IN')}
+              {Number(impactCount || 0).toLocaleString('en-IN')}
             </div>
             <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', fontWeight: 600 }}>People Helped</div>
           </div>
 
           <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-card)', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
             <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--saffron-main)', fontFamily: 'var(--font-heading)' }}>
-              ₹{Number(total_raised || 0).toLocaleString('en-IN')}
+              ₹{Number(raisedCount || 0).toLocaleString('en-IN')}
             </div>
             <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', fontWeight: 600 }}>Funds Raised</div>
           </div>
 
           <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-card)', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
             <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)', fontFamily: 'var(--font-heading)' }}>
-              {total_posts}
+              {activitiesCount}
             </div>
             <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', fontWeight: 600 }}>Verified Activities</div>
           </div>
@@ -300,7 +333,7 @@ export default function NgoProfilePage() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
               Audited breakdown of expenditure per rupee raised on BookMySeva.
             </p>
-            <DonutChart data={funds_breakdown} />
+            <DonutChart data={parsedFundsBreakdown} />
           </div>
 
           <div style={{ background: '#ffffff', padding: '1.75rem', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-card)', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -308,16 +341,16 @@ export default function NgoProfilePage() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem', textAlign: 'center' }}>
               Ranked on NITI Aayog filings & field records.
             </p>
-            <GaugeChart score={trust_score || 90} />
+            <GaugeChart score={finalTrustScore} />
           </div>
         </div>
 
         {/* Team Members */}
-        {team_members && team_members.length > 0 && (
+        {parsedTeamMembers && parsedTeamMembers.length > 0 && (
           <div style={{ background: '#ffffff', padding: '1.75rem', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-card)', boxShadow: 'var(--shadow-sm)', marginBottom: '2.5rem' }}>
             <h3 style={{ fontSize: '1.15rem', marginBottom: '1.25rem' }}>👥 Core Team Members</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-              {team_members.map((member, idx) => (
+              {parsedTeamMembers.map((member, idx) => (
                 <div
                   key={idx}
                   style={{
@@ -366,9 +399,9 @@ export default function NgoProfilePage() {
             </div>
           </div>
 
-          {posts.length > 0 ? (
+          {ngoPosts.length > 0 ? (
             <div className="feed-grid">
-              {posts.map((post) => (
+              {ngoPosts.map((post) => (
                 <PostCard key={post.id} post={post} />
               ))}
             </div>

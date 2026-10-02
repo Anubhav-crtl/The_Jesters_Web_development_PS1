@@ -2,14 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  getNgos,
+  getAllNgos,
   getPendingNgos,
-  getPosts,
+  getAllPosts,
   approveNgo,
   rejectNgo,
-  deletePost,
-  deleteNgo,
-} from '../api/api';
+} from '../api';
 
 export default function AdminDashboardPage() {
   const { auth, logout } = useAuth();
@@ -19,30 +17,28 @@ export default function AdminDashboardPage() {
   const [pendingNgos, setPendingNgos] = useState([]);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
   const [notification, setNotification] = useState('');
 
-  // Check auth
   useEffect(() => {
-    if (auth?.role !== 'ADMIN') {
-      navigate('/login?role=admin');
-    } else {
-      loadData();
-    }
-  }, [auth]);
+    loadData();
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
+    setErrorMessage('');
     try {
       const [actNgos, pendNgos, allPosts] = await Promise.all([
-        getNgos(),
-        getPendingNgos(auth?.token),
-        getPosts(),
+        getAllNgos(),
+        getPendingNgos(),
+        getAllPosts(),
       ]);
-      setActiveNgos(actNgos);
-      setPendingNgos(pendNgos);
-      setPosts(allPosts);
+      setActiveNgos(Array.isArray(actNgos) ? actNgos : []);
+      setPendingNgos(Array.isArray(pendNgos) ? pendNgos : []);
+      setPosts(Array.isArray(allPosts) ? allPosts : []);
     } catch (err) {
-      console.error('Failed to load admin data', err);
+      console.error('Failed to load admin data from backend:', err);
+      setErrorMessage(err.message || 'Failed to fetch admin data');
     } finally {
       setLoading(false);
     }
@@ -50,39 +46,27 @@ export default function AdminDashboardPage() {
 
   const handleApprove = async (id, name) => {
     try {
-      await approveNgo(id, auth?.token);
+      await approveNgo(id);
       setNotification(`Approved ${name} successfully! NGO is now Active.`);
       setTimeout(() => setNotification(''), 4000);
       loadData();
     } catch (err) {
-      alert(err.message || 'Error approving NGO');
+      console.error('Approve failed:', err);
+      setErrorMessage(`Approve failed: ${err.message}`);
     }
   };
 
   const handleReject = async (id, name) => {
     if (window.confirm(`Are you sure you want to reject ${name}?`)) {
       try {
-        await rejectNgo(id, auth?.token);
+        await rejectNgo(id, 'Documentation mismatch');
         setNotification(`Application for ${name} rejected.`);
         setTimeout(() => setNotification(''), 4000);
         loadData();
       } catch (err) {
-        alert(err.message || 'Error rejecting NGO');
+        console.error('Reject failed:', err);
+        setErrorMessage(`Reject failed: ${err.message}`);
       }
-    }
-  };
-
-  const handleDeletePost = async (id, title) => {
-    if (window.confirm(`Delete post "${title}"?`)) {
-      await deletePost(id, auth?.token);
-      loadData();
-    }
-  };
-
-  const handleDeleteNgo = async (id, name) => {
-    if (window.confirm(`Delete NGO "${name}" and all its posts?`)) {
-      await deleteNgo(id, auth?.token);
-      loadData();
     }
   };
 
@@ -118,6 +102,13 @@ export default function AdminDashboardPage() {
       </header>
 
       <main className="container" style={{ flex: 1, padding: '2rem 1.25rem' }}>
+        {/* Mandatory Red Error Banner */}
+        {errorMessage && (
+          <div className="alert-box alert-red" style={{ marginBottom: '1.5rem' }}>
+            <span>🚨 Connection failed: Backend not reachable. Error: {errorMessage}</span>
+          </div>
+        )}
+
         {notification && (
           <div className="alert-box alert-green" style={{ marginBottom: '1.5rem' }}>
             <span>✅</span>
@@ -125,7 +116,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* 2. Stats Row (3 Cards) */}
+        {/* 2. Stats Row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', marginBottom: '2rem' }}>
           <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-card)', boxShadow: 'var(--shadow-sm)' }}>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-light)', fontWeight: 600 }}>Active NGOs</div>
@@ -171,7 +162,7 @@ export default function AdminDashboardPage() {
               <span>🔔</span> Pending Applications ({pendingNgos.length})
             </h2>
             <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
-              Compare Darpan ID against NITI Aayog before approving
+              Verify Darpan ID with NITI Aayog before approving
             </span>
           </div>
 
@@ -194,20 +185,20 @@ export default function AdminDashboardPage() {
                 >
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '1.4rem' }}>{ngo.logo_emoji || '🏢'}</span>
+                      <span style={{ fontSize: '1.4rem' }}>{ngo.logoEmoji || ngo.logo_emoji || '🏢'}</span>
                       <strong style={{ fontSize: '1.05rem' }}>{ngo.name}</strong>
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
                         Applied recently
                       </span>
                     </div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-                      Darpan: <code>{ngo.darpan_id}</code> · Location: {ngo.location} · Category: {ngo.category}
+                      Darpan: <code>{ngo.darpanId || ngo.darpan_id}</code> · Location: {ngo.location} · Category: {ngo.category}
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <button
-                      onClick={() => alert(`NGO Details:\nName: ${ngo.name}\nEmail: ${ngo.email}\nDescription: ${ngo.description}\nWebsite: ${ngo.website_url || 'N/A'}`)}
+                      onClick={() => alert(`NGO Details:\nName: ${ngo.name}\nEmail: ${ngo.email}\nDescription: ${ngo.description}\nWebsite: ${ngo.websiteUrl || ngo.website_url || 'N/A'}`)}
                       className="btn-outline"
                       style={{ fontSize: '0.85rem' }}
                     >
@@ -233,14 +224,14 @@ export default function AdminDashboardPage() {
             </div>
           ) : (
             <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-              No pending applications. All registered organisations are reviewed.
+              No pending applications in backend.
             </div>
           )}
         </section>
 
         {/* 5. Active NGOs List */}
         <section style={{ background: '#ffffff', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-card)', padding: '1.75rem', marginBottom: '2.5rem', boxShadow: 'var(--shadow-sm)' }}>
-          <h2 style={{ fontSize: '1.35rem', marginBottom: '1.25rem' }}>Active Verified NGOs</h2>
+          <h2 style={{ fontSize: '1.35rem', marginBottom: '1.25rem' }}>Active Verified NGOs ({activeNgos.length})</h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             {activeNgos.map((ngo) => (
@@ -257,12 +248,12 @@ export default function AdminDashboardPage() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <span>{ngo.logo_emoji || '🏢'}</span>
+                  <span>{ngo.logoEmoji || ngo.logo_emoji || '🏢'}</span>
                   <Link to={`/ngo/${ngo.id}`} style={{ fontWeight: 700, color: 'var(--text-main)' }}>
                     {ngo.name}
                   </Link>
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    · {ngo.category} · Trust {ngo.trust_score}%
+                    · {ngo.category} · Trust {ngo.trustScore || ngo.trust_score || 90}%
                   </span>
                 </div>
 
@@ -274,13 +265,6 @@ export default function AdminDashboardPage() {
                   >
                     View
                   </Link>
-                  <button
-                    onClick={() => handleDeleteNgo(ngo.id, ngo.name)}
-                    className="btn-danger-outline"
-                    style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}
-                  >
-                    Delete
-                  </button>
                 </div>
               </div>
             ))}
@@ -289,7 +273,7 @@ export default function AdminDashboardPage() {
 
         {/* 6. Recent Posts List */}
         <section style={{ background: '#ffffff', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-card)', padding: '1.75rem', boxShadow: 'var(--shadow-sm)' }}>
-          <h2 style={{ fontSize: '1.35rem', marginBottom: '1.25rem' }}>All Activities & Posts</h2>
+          <h2 style={{ fontSize: '1.35rem', marginBottom: '1.25rem' }}>All Activities & Posts ({posts.length})</h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             {posts.map((post) => (
@@ -313,7 +297,7 @@ export default function AdminDashboardPage() {
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                     · by {post.ngo?.name || 'NGO'} · {post.event_date}
                   </span>
-                  {Number(post.is_top_needed) === 1 && (
+                  {Boolean(post.is_top_needed) && (
                     <span style={{ fontSize: '0.75rem', background: '#fee2e2', color: '#b91c1c', padding: '0.15rem 0.45rem', borderRadius: '4px', fontWeight: 700 }}>
                       🔥 Top Needed
                     </span>
@@ -328,13 +312,6 @@ export default function AdminDashboardPage() {
                   >
                     View
                   </Link>
-                  <button
-                    onClick={() => handleDeletePost(post.id, post.title)}
-                    className="btn-danger-outline"
-                    style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}
-                  >
-                    Delete
-                  </button>
                 </div>
               </div>
             ))}

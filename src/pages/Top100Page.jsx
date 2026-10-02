@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import VerifiedBadge from '../components/VerifiedBadge';
-import { getTop100 } from '../api/api';
+import { getTop100 } from '../api';
 
 export default function Top100Page() {
   const [rankedList, setRankedList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     fetchTop100();
@@ -15,11 +16,13 @@ export default function Top100Page() {
 
   const fetchTop100 = async () => {
     setLoading(true);
+    setErrorMessage('');
     try {
       const data = await getTop100();
-      setRankedList(data);
+      setRankedList(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error('Failed to load top 100', err);
+      console.error('Failed to load top 100 from backend:', err);
+      setErrorMessage(err.message || 'Failed to fetch Top 100 rankings');
     } finally {
       setLoading(false);
     }
@@ -30,6 +33,13 @@ export default function Top100Page() {
       <Header />
 
       <main className="container" style={{ flex: 1, padding: '2.5rem 1.25rem 4rem' }}>
+        {/* Mandatory Red Error Banner */}
+        {errorMessage && (
+          <div className="alert-box alert-red" style={{ maxWidth: '900px', margin: '0 auto 2rem' }}>
+            <span>🚨 Connection failed: Backend not reachable. Error: {errorMessage}</span>
+          </div>
+        )}
+
         {/* Heading */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🏆</div>
@@ -44,7 +54,7 @@ export default function Top100Page() {
         {loading ? (
           <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--text-muted)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎗️</div>
-            <p>Compiling trust and impact rankings...</p>
+            <p>Compiling trust and impact rankings from backend...</p>
           </div>
         ) : rankedList.length > 0 ? (
           <div
@@ -59,13 +69,18 @@ export default function Top100Page() {
             }}
           >
             {rankedList.map((item, idx) => {
-              const isTop3 = item.rank <= 3;
+              const rank = item.rank || (idx + 1);
+              const isTop3 = rank <= 3;
               const rankBadgeColor =
-                item.rank === 1 ? '#F59E0B' : item.rank === 2 ? '#94A3B8' : item.rank === 3 ? '#B45309' : '#64748B';
+                rank === 1 ? '#F59E0B' : rank === 2 ? '#94A3B8' : rank === 3 ? '#B45309' : '#64748B';
+
+              const logo = item.logoEmoji || item.logo_emoji || '🏢';
+              const trust = item.trustScore !== undefined ? item.trustScore : (item.trust_score !== undefined ? item.trust_score : 90);
+              const scoreVal = item.score !== undefined ? item.score : trust;
 
               return (
                 <div
-                  key={item.id}
+                  key={item.id || idx}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -95,7 +110,7 @@ export default function Top100Page() {
                         boxShadow: isTop3 ? '0 2px 6px rgba(0,0,0,0.15)' : 'none',
                       }}
                     >
-                      #{item.rank}
+                      #{rank}
                     </div>
 
                     {/* Logo Emoji */}
@@ -112,7 +127,7 @@ export default function Top100Page() {
                         border: '1px solid var(--border-subtle)',
                       }}
                     >
-                      {item.logo_emoji || '🏢'}
+                      {logo}
                     </div>
 
                     {/* NGO Details */}
@@ -133,7 +148,7 @@ export default function Top100Page() {
                         <VerifiedBadge status={item.status} />
                         <span>·</span>
                         <span style={{ color: 'var(--emerald-main)', fontWeight: 700 }}>
-                          Trust: {item.trust_score}%
+                          Trust: {trust}%
                         </span>
                       </div>
                     </div>
@@ -146,7 +161,7 @@ export default function Top100Page() {
                         Score
                       </div>
                       <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--saffron-main)', fontFamily: 'var(--font-heading)' }}>
-                        {item.score}
+                        {scoreVal}
                       </div>
                     </div>
 
@@ -165,7 +180,10 @@ export default function Top100Page() {
         ) : (
           <div className="empty-state">
             <div className="empty-state-illustration">🏆</div>
-            <h3>No Ranked NGOs yet</h3>
+            <h3>No Ranked NGOs returned by backend</h3>
+            <button onClick={fetchTop100} className="btn-primary" style={{ marginTop: '1rem' }}>
+              Retry
+            </button>
           </div>
         )}
       </main>

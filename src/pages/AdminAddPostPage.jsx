@@ -3,18 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import PostCard from '../components/PostCard';
-import { getNgos, createPost } from '../api/api';
-import { useAuth } from '../context/AuthContext';
+import { getAllNgos, createPost } from '../api';
 
 export default function AdminAddPostPage() {
   const navigate = useNavigate();
-  const { auth } = useAuth();
-
-  useEffect(() => {
-    if (auth?.role !== 'ADMIN') {
-      navigate('/login?role=admin');
-    }
-  }, [auth]);
 
   const [ngos, setNgos] = useState([]);
   const [formData, setFormData] = useState({
@@ -42,10 +34,17 @@ export default function AdminAddPostPage() {
 
   useEffect(() => {
     async function loadActiveNgos() {
-      const data = await getNgos();
-      setNgos(data);
-      if (data.length > 0) {
-        setFormData((prev) => ({ ...prev, ngo_id: data[0].id }));
+      try {
+        const data = await getAllNgos();
+        if (Array.isArray(data)) {
+          setNgos(data);
+          if (data.length > 0) {
+            setFormData((prev) => ({ ...prev, ngo_id: data[0].id }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load NGOs from backend:', err);
+        setErrorMessage(err.message);
       }
     }
     loadActiveNgos();
@@ -88,33 +87,42 @@ export default function AdminAddPostPage() {
     setErrorMessage('');
 
     try {
+      const validUrls = mediaUrls.filter((url) => url.trim().length > 0);
+
       const payload = {
-        ...formData,
         ngo_id: Number(formData.ngo_id),
+        title: formData.title,
+        summary: formData.summary,
+        raw_input: formData.raw_input,
+        category: formData.category,
         impact_count: Number(formData.impact_count),
         funds_goal: Number(formData.funds_goal),
         funds_raised: Number(formData.funds_raised),
         volunteers_needed: Number(formData.volunteers_needed),
-        is_top_needed: formData.is_top_needed ? 1 : 0,
-        media_urls: mediaUrls.filter((url) => url.trim().length > 0),
+        is_top_needed: formData.is_top_needed ? true : false,
+        status: formData.status,
+        event_date: formData.event_date,
+        // Backend expects media_urls as a JSON string
+        media_urls: JSON.stringify(validUrls),
       };
 
-      await createPost(payload, auth?.token);
+      await createPost(payload);
       navigate('/admin');
     } catch (err) {
+      console.error('Failed to publish post to backend:', err);
       setErrorMessage(err.message || 'Failed to publish post');
       setIsSubmitting(false);
     }
   };
 
-  // Construct preview post
+  // Preview card
   const selectedNgo = ngos.find((n) => String(n.id) === String(formData.ngo_id)) || {
     id: 1,
     name: 'Selected Verified NGO',
-    logo_emoji: '❤️',
+    logoEmoji: '❤️',
     status: 'ACTIVE',
-    donation_url: 'https://example.org/donate',
-    google_form_url: 'https://forms.google.com/volunteer',
+    donationUrl: 'https://example.org/donate',
+    googleFormUrl: 'https://forms.google.com/volunteer',
   };
 
   const previewPost = {
@@ -129,7 +137,7 @@ export default function AdminAddPostPage() {
     media_urls: mediaUrls.filter(Boolean),
     status: formData.status,
     event_date: formData.event_date,
-    is_top_needed: formData.is_top_needed ? 1 : 0,
+    is_top_needed: formData.is_top_needed ? true : false,
     ngo: selectedNgo,
   };
 
@@ -150,16 +158,15 @@ export default function AdminAddPostPage() {
           </Link>
         </div>
 
+        {/* Mandatory Red Error Banner */}
         {errorMessage && (
           <div className="alert-box alert-red">
-            <span>⚠️</span>
-            <span>{errorMessage}</span>
+            <span>🚨 Connection failed: {errorMessage}</span>
           </div>
         )}
 
-        {/* 65/35 Two-Column Architecture */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.75fr 1fr', gap: '2rem', alignItems: 'start' }}>
-          {/* Left: Form Engine */}
+          {/* Form Engine */}
           <div style={{ background: '#ffffff', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-card)', padding: '2rem', boxShadow: 'var(--shadow-sm)' }}>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -173,7 +180,7 @@ export default function AdminAddPostPage() {
                 >
                   {ngos.map((n) => (
                     <option key={n.id} value={n.id}>
-                      {n.logo_emoji || '🏢'} {n.name} ({n.location} - Darpan: {n.darpan_id})
+                      {n.logoEmoji || n.logo_emoji || '🏢'} {n.name} ({n.location} - Darpan: {n.darpanId || n.darpan_id})
                     </option>
                   ))}
                 </select>
@@ -364,13 +371,13 @@ export default function AdminAddPostPage() {
                   className="btn-primary"
                   style={{ padding: '0.75rem 2rem' }}
                 >
-                  {isSubmitting ? 'Publishing...' : 'Publish Activity to Live Feed'}
+                  {isSubmitting ? 'Publishing to Backend...' : 'Publish Activity to Live Feed'}
                 </button>
               </div>
             </form>
           </div>
 
-          {/* Right: Sticky Real-Time Feed Card Simulation */}
+          {/* Right Live Simulation */}
           <div style={{ position: 'sticky', top: '5.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
               <span style={{ fontSize: '0.82rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-light)' }}>

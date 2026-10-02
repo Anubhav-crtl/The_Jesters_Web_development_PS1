@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { login as apiLogin } from '../api/api';
+import { login as apiLogin } from '../api';
 
 const AuthContext = createContext();
 
@@ -7,9 +7,9 @@ export function AuthProvider({ children }) {
   const [auth, setAuth] = useState(() => {
     try {
       const stored = localStorage.getItem('bms_auth');
-      return stored ? JSON.parse(stored) : { user: null, token: null, role: null, ngoId: null };
+      return stored ? JSON.parse(stored) : { user: null, token: null, role: null, name: null, ngoId: null };
     } catch {
-      return { user: null, token: null, role: null, ngoId: null };
+      return { user: null, token: null, role: null, name: null, ngoId: null };
     }
   });
 
@@ -30,20 +30,24 @@ export function AuthProvider({ children }) {
     localStorage.setItem('bms_saved_posts', JSON.stringify(savedPostIds));
   }, [savedPostIds]);
 
-  const login = async ({ email, password }) => {
-    const data = await apiLogin({ email, password });
+  const loginUser = async ({ email, password }) => {
+    const data = await apiLogin(email, password);
+    if (!data.success) {
+      throw new Error(data.error || 'Login failed');
+    }
     const authState = {
-      user: data.user || { email },
-      token: data.token,
+      user: { email, name: data.name },
+      token: data.token || 'auth-token',
       role: data.role,
-      ngoId: data.ngoId || null,
+      name: data.name,
+      ngoId: data.ngoId || data.id || null,
     };
     setAuth(authState);
-    return authState;
+    return data;
   };
 
   const logout = () => {
-    setAuth({ user: null, token: null, role: null, ngoId: null });
+    setAuth({ user: null, token: null, role: null, name: null, ngoId: null });
   };
 
   const toggleSavePost = (id) => {
@@ -58,7 +62,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         auth,
-        login,
+        login: loginUser,
         logout,
         savedPostIds,
         toggleSavePost,

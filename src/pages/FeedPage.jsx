@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import PostCard from '../components/PostCard';
-import { getPosts } from '../api/api';
+import { getAllPosts } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = ['All', 'Food', 'Education', 'Health', 'Environment', 'Women', 'Animals'];
@@ -16,6 +16,7 @@ export default function FeedPage() {
 
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Filter states
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -29,27 +30,17 @@ export default function FeedPage() {
 
   useEffect(() => {
     fetchPosts();
-  }, [selectedCategory, selectedCity, mostNeededOnly, verifiedOnly, searchQuery, showSavedOnly, savedPostIds]);
+  }, []);
 
   const fetchPosts = async () => {
     setLoading(true);
+    setErrorMessage('');
     try {
-      const filters = {};
-      if (selectedCategory !== 'All') filters.category = selectedCategory;
-      if (selectedCity && selectedCity !== 'All Cities') filters.city = selectedCity;
-      if (mostNeededOnly) filters.is_top_needed = 1;
-      if (verifiedOnly) filters.verified_only = true;
-      if (searchQuery.trim()) filters.search = searchQuery.trim();
-
-      const data = await getPosts(filters);
-
-      if (showSavedOnly) {
-        setPosts(data.filter((p) => savedPostIds.includes(p.id)));
-      } else {
-        setPosts(data);
-      }
+      const data = await getAllPosts();
+      setPosts(data);
     } catch (err) {
-      console.error('Failed to load posts', err);
+      console.error('Failed to fetch posts from backend:', err);
+      setErrorMessage(err.message || 'Unknown network error');
     } finally {
       setLoading(false);
     }
@@ -79,6 +70,38 @@ export default function FeedPage() {
     setSearchParams({});
   };
 
+  // Filter posts on client if user applies category / city / most needed
+  let filteredPosts = Array.isArray(posts) ? [...posts] : [];
+
+  if (showSavedOnly) {
+    filteredPosts = filteredPosts.filter((p) => savedPostIds.includes(p.id));
+  }
+  if (selectedCategory !== 'All') {
+    filteredPosts = filteredPosts.filter(
+      (p) => p.category?.toLowerCase() === selectedCategory.toLowerCase()
+    );
+  }
+  if (selectedCity && selectedCity !== 'All Cities') {
+    filteredPosts = filteredPosts.filter(
+      (p) => p.ngo?.location?.toLowerCase() === selectedCity.toLowerCase()
+    );
+  }
+  if (mostNeededOnly) {
+    filteredPosts = filteredPosts.filter((p) => Boolean(p.is_top_needed));
+  }
+  if (verifiedOnly) {
+    filteredPosts = filteredPosts.filter((p) => p.ngo?.status === 'ACTIVE');
+  }
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase();
+    filteredPosts = filteredPosts.filter(
+      (p) =>
+        p.title?.toLowerCase().includes(q) ||
+        p.summary?.toLowerCase().includes(q) ||
+        p.ngo?.name?.toLowerCase().includes(q)
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header
@@ -87,6 +110,30 @@ export default function FeedPage() {
       />
 
       <main className="container" style={{ flex: 1 }}>
+        {/* Mandatory Red Error Banner if backend fails */}
+        {errorMessage && (
+          <div
+            className="alert-box alert-red"
+            style={{
+              margin: '1.5rem 0',
+              padding: '1rem 1.25rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span>🚨 Connection failed: Backend not reachable. Error: {errorMessage}</span>
+            <button
+              onClick={fetchPosts}
+              className="btn-danger-outline"
+              style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Hero Section */}
         <section style={{ padding: '2.5rem 0 1.25rem', textAlign: 'center' }}>
           <h1 style={{ fontSize: '2.5rem', marginBottom: '0.4rem', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
@@ -97,7 +144,7 @@ export default function FeedPage() {
           </p>
         </section>
 
-        {/* 2. Discovery Grid (5 tiles with Stitch subtitles) */}
+        {/* Discovery Grid */}
         <section className="discovery-section">
           <div className="discovery-grid">
             {/* Tile 1: Top 100 */}
@@ -169,7 +216,7 @@ export default function FeedPage() {
           </div>
         </section>
 
-        {/* Filter Indicators / Reset */}
+        {/* Filter Indicators */}
         {(selectedCategory !== 'All' || selectedCity || mostNeededOnly || verifiedOnly || searchQuery || showSavedOnly) && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', flexWrap: 'wrap', gap: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.85rem' }}>
@@ -191,7 +238,7 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* 3. Category Tabs */}
+        {/* Category Tabs */}
         <div id="category-tabs-section" className="category-tabs-container">
           <div className="category-tabs">
             {CATEGORIES.map((cat) => (
@@ -214,33 +261,33 @@ export default function FeedPage() {
           </div>
         </div>
 
-        {/* 4. Feed Grid */}
+        {/* Feed Grid */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--text-muted)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🎗️</div>
-            <p>Fetching verified ground activities...</p>
+            <p>Fetching verified ground activities from backend...</p>
           </div>
-        ) : posts.length > 0 ? (
+        ) : filteredPosts.length > 0 ? (
           <section className="feed-grid">
-            {posts.map((post) => (
+            {filteredPosts.map((post) => (
               <PostCard key={post.id} post={post} />
             ))}
           </section>
         ) : (
           <div className="empty-state">
             <div className="empty-state-illustration">❤️</div>
-            <h3 className="empty-state-title">No activities yet. Check back soon.</h3>
+            <h3 className="empty-state-title">No activities found.</h3>
             <p className="empty-state-sub">
-              {showSavedOnly
-                ? "You haven't saved any causes yet. Click the heart icon on any post to bookmark it for seva!"
-                : "Try clearing filters to see other verified impact drives happening across India."}
+              {errorMessage
+                ? `Connection to backend failed: ${errorMessage}`
+                : "No activities currently matching your filters."}
             </p>
             <button
               type="button"
               className="btn-primary"
-              onClick={clearAllFilters}
+              onClick={fetchPosts}
             >
-              View All Activities
+              Refresh Feed
             </button>
           </div>
         )}

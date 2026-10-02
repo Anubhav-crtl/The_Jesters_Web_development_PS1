@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { registerNgo } from '../api/api';
+import { registerNgo } from '../api';
 
 export default function NgoRegisterPage() {
   const navigate = useNavigate();
@@ -11,17 +11,17 @@ export default function NgoRegisterPage() {
     name: '',
     email: '',
     password: '',
-    darpan_id: '',
+    darpanId: '',
     category: 'Food',
     location: '',
-    founded_year: '',
-    logo_emoji: '❤️',
+    foundedYear: '',
+    logoEmoji: '❤️',
     description: '',
-    website_url: '',
-    youtube_url: '',
-    instagram_url: '',
-    donation_url: '',
-    google_form_url: '',
+    websiteUrl: '',
+    youtubeUrl: '',
+    instagramUrl: '',
+    donationUrl: '',
+    googleFormUrl: '',
   });
 
   const [teamMembers, setTeamMembers] = useState([
@@ -59,10 +59,28 @@ export default function NgoRegisterPage() {
     setIsSubmitting(true);
 
     try {
+      const filteredMembers = teamMembers.filter((m) => m.name.trim() !== '');
+
       const payload = {
-        ...formData,
-        founded_year: Number(formData.founded_year || new Date().getFullYear()),
-        team_members: teamMembers.filter((m) => m.name.trim() !== ''),
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        darpanId: formData.darpanId,
+        darpan_id: formData.darpanId,
+        category: formData.category,
+        location: formData.location,
+        foundedYear: Number(formData.foundedYear || new Date().getFullYear()),
+        logoEmoji: formData.logoEmoji,
+        description: formData.description,
+        websiteUrl: formData.websiteUrl,
+        youtubeUrl: formData.youtubeUrl,
+        instagramUrl: formData.instagramUrl,
+        donationUrl: formData.donationUrl,
+        googleFormUrl: formData.googleFormUrl,
+        // Backend stores JSON strings
+        teamMembers: JSON.stringify(filteredMembers),
+        team_members: JSON.stringify(filteredMembers),
+        fundsBreakdown: JSON.stringify({ programs: 60, operations: 25, admin: 15 }),
       };
 
       await registerNgo(payload);
@@ -72,7 +90,8 @@ export default function NgoRegisterPage() {
         navigate('/');
       }, 3000);
     } catch (err) {
-      setErrorMessage(err.message || 'Failed to submit registration. Please check fields.');
+      console.error('Registration failed:', err);
+      setErrorMessage(err.message || 'Registration failed');
       setIsSubmitting(false);
     }
   };
@@ -93,15 +112,15 @@ export default function NgoRegisterPage() {
             </p>
           </div>
 
+          {/* Mandatory Red Error Banner */}
           {errorMessage && (
             <div className="alert-box alert-red">
-              <span>⚠️</span>
-              <span>{errorMessage}</span>
+              <span>🚨 Connection failed: {errorMessage}</span>
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
-            {/* Section 1: Basic Information */}
+            {/* 1. Basic Information */}
             <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-card)', paddingBottom: '0.5rem' }}>
               1. Basic Information
             </h3>
@@ -124,11 +143,11 @@ export default function NgoRegisterPage() {
                 <label>Darpan ID *</label>
                 <input
                   type="text"
-                  name="darpan_id"
+                  name="darpanId"
                   required
                   placeholder="MH/2018/0123456"
                   className="form-input"
-                  value={formData.darpan_id}
+                  value={formData.darpanId}
                   onChange={handleChange}
                 />
                 <div className="form-hint">Format: MH/2018/0123456 (NITI Aayog registration)</div>
@@ -163,7 +182,7 @@ export default function NgoRegisterPage() {
               </div>
             </div>
 
-            {/* Section 2: Profile */}
+            {/* 2. Profile */}
             <h3 style={{ fontSize: '1.2rem', margin: '2rem 0 1rem', borderBottom: '1px solid var(--border-card)', paddingBottom: '0.5rem' }}>
               2. Organisation Profile
             </h3>
@@ -205,10 +224,10 @@ export default function NgoRegisterPage() {
                   <label>Founded Year</label>
                   <input
                     type="number"
-                    name="founded_year"
+                    name="foundedYear"
                     placeholder="2018"
                     className="form-input"
-                    value={formData.founded_year}
+                    value={formData.foundedYear}
                     onChange={handleChange}
                   />
                 </div>
@@ -217,10 +236,10 @@ export default function NgoRegisterPage() {
                   <input
                     type="text"
                     maxLength={2}
-                    name="logo_emoji"
+                    name="logoEmoji"
                     placeholder="❤️"
                     className="form-input"
-                    value={formData.logo_emoji}
+                    value={formData.logoEmoji}
                     onChange={handleChange}
                   />
                 </div>
@@ -239,7 +258,7 @@ export default function NgoRegisterPage() {
               />
             </div>
 
-            {/* Section 3: Links */}
+            {/* 3. Links */}
             <h3 style={{ fontSize: '1.2rem', margin: '2rem 0 1rem', borderBottom: '1px solid var(--border-card)', paddingBottom: '0.5rem' }}>
               3. Action & Public Links
             </h3>
@@ -249,11 +268,11 @@ export default function NgoRegisterPage() {
                 <label>Donation URL *</label>
                 <input
                   type="url"
-                  name="donation_url"
+                  name="donationUrl"
                   required
                   placeholder="https://your-ngo.org/donate"
                   className="form-input"
-                  value={formData.donation_url}
+                  value={formData.donationUrl}
                   onChange={handleChange}
                 />
                 <div className="form-hint">Where users will donate directly without middleman</div>
@@ -263,11 +282,11 @@ export default function NgoRegisterPage() {
                 <label>Volunteer Google Form URL *</label>
                 <input
                   type="url"
-                  name="google_form_url"
+                  name="googleFormUrl"
                   required
-                  placeholder="https://forms.google.com/..."
+                  placeholder="https://forms.gle/..."
                   className="form-input"
-                  value={formData.google_form_url}
+                  value={formData.googleFormUrl}
                   onChange={handleChange}
                 />
                 <div className="form-hint">Where volunteers will sign up directly</div>
@@ -279,10 +298,10 @@ export default function NgoRegisterPage() {
                 <label>Website URL</label>
                 <input
                   type="url"
-                  name="website_url"
+                  name="websiteUrl"
                   placeholder="https://organisation.org"
                   className="form-input"
-                  value={formData.website_url}
+                  value={formData.websiteUrl}
                   onChange={handleChange}
                 />
               </div>
@@ -291,10 +310,10 @@ export default function NgoRegisterPage() {
                 <label>YouTube Channel</label>
                 <input
                   type="url"
-                  name="youtube_url"
+                  name="youtubeUrl"
                   placeholder="https://youtube.com/@ngo"
                   className="form-input"
-                  value={formData.youtube_url}
+                  value={formData.youtubeUrl}
                   onChange={handleChange}
                 />
               </div>
@@ -303,16 +322,16 @@ export default function NgoRegisterPage() {
                 <label>Instagram Handle / URL</label>
                 <input
                   type="text"
-                  name="instagram_url"
+                  name="instagramUrl"
                   placeholder="https://instagram.com/ngo"
                   className="form-input"
-                  value={formData.instagram_url}
+                  value={formData.instagramUrl}
                   onChange={handleChange}
                 />
               </div>
             </div>
 
-            {/* Section 4: Team Members */}
+            {/* 4. Team Members */}
             <h3 style={{ fontSize: '1.2rem', margin: '2rem 0 1rem', borderBottom: '1px solid var(--border-card)', paddingBottom: '0.5rem' }}>
               4. Key Team Members
             </h3>
@@ -364,7 +383,7 @@ export default function NgoRegisterPage() {
             <div className="alert-box alert-amber" style={{ margin: '2rem 0' }}>
               <span style={{ fontSize: '1.2rem' }}>🏛️</span>
               <div>
-                <strong>Darpan Verification Protocol:</strong> Your Darpan ID will be verified by our admin team against the official NITI Aayog portal. Approval typically takes 24 hours.
+                <strong>Darpan Verification Protocol:</strong> Your Darpan ID will be verified by our admin team against the official NITI Aayog portal. Approval takes 24 hours.
               </div>
             </div>
 
@@ -379,7 +398,7 @@ export default function NgoRegisterPage() {
                 className="btn-primary"
                 style={{ padding: '0.8rem 2rem', fontSize: '1rem' }}
               >
-                {isSubmitting ? 'Submitting Application...' : 'Submit Application'}
+                {isSubmitting ? 'Submitting to Backend...' : 'Submit Application'}
               </button>
             </div>
           </form>
@@ -392,14 +411,11 @@ export default function NgoRegisterPage() {
           <div className="modal-content">
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎉</div>
             <h2 style={{ fontSize: '1.5rem', marginBottom: '0.6rem', color: 'var(--emerald-main)' }}>
-              Application Received!
+              Application received!
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-              We'll verify your Darpan ID with NITI Aayog within 24 hours. You'll receive full publishing access once approved.
+              We'll verify your Darpan ID with NITI Aayog within 24 hours. Redirecting to home feed...
             </p>
-            <div style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>
-              Redirecting to feed in 3 seconds...
-            </div>
           </div>
         </div>
       )}

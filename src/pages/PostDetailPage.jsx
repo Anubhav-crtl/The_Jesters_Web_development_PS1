@@ -6,7 +6,7 @@ import Slideshow from '../components/Slideshow';
 import ProgressBar from '../components/ProgressBar';
 import StatusBadge from '../components/StatusBadge';
 import VerifiedBadge from '../components/VerifiedBadge';
-import { getPostById } from '../api/api';
+import { getPostById, parseJsonSafe } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 const MOCK_DONORS = [
@@ -23,7 +23,7 @@ export default function PostDetailPage() {
 
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     fetchPost();
@@ -31,11 +31,13 @@ export default function PostDetailPage() {
 
   const fetchPost = async () => {
     setLoading(true);
+    setErrorMessage('');
     try {
       const data = await getPostById(id);
       setPost(data);
     } catch (err) {
-      setError(err.message || 'Post not found');
+      console.error('Failed to fetch post detail from backend:', err);
+      setErrorMessage(err.message || 'Post fetch failed');
     } finally {
       setLoading(false);
     }
@@ -47,21 +49,24 @@ export default function PostDetailPage() {
         <Header />
         <div style={{ textAlign: 'center', padding: '5rem 0', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: '2.5rem' }}>🎗️</div>
-          <p>Loading activity details...</p>
+          <p>Loading activity details from backend...</p>
         </div>
         <Footer />
       </div>
     );
   }
 
-  if (error || !post) {
+  if (errorMessage || !post) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Header />
-        <div className="container" style={{ padding: '4rem 1rem', textAlign: 'center' }}>
+        <div className="container" style={{ padding: '3rem 1.25rem', textAlign: 'center' }}>
+          <div className="alert-box alert-red" style={{ maxWidth: '600px', margin: '0 auto 2rem', textAlign: 'left' }}>
+            <span>🚨 Connection failed: {errorMessage || 'Post not found'}</span>
+          </div>
           <h2>Activity Not Found</h2>
           <p style={{ color: 'var(--text-muted)', margin: '1rem 0' }}>
-            The activity you are looking for does not exist or may have been archived.
+            Could not retrieve post #{id} from the backend database.
           </p>
           <Link to="/" className="btn-primary">
             ← Back to Feed
@@ -87,9 +92,12 @@ export default function PostDetailPage() {
     ngo = {},
   } = post;
 
+  const parsedMediaUrls = parseJsonSafe(media_urls, []);
+  const donationUrl = ngo?.donationUrl || ngo?.donation_url;
+  const volunteerUrl = ngo?.googleFormUrl || ngo?.google_form_url;
+  const logoEmoji = ngo?.logoEmoji || ngo?.logo_emoji || '❤️';
+
   const isSaved = isPostSaved(post.id);
-  const hasDonation = funds_goal > 0 && ngo.donation_url;
-  const hasVolunteer = volunteers_needed > 0 && ngo.google_form_url;
 
   const formattedDate = event_date
     ? new Date(event_date).toLocaleDateString('en-US', {
@@ -98,6 +106,18 @@ export default function PostDetailPage() {
         year: 'numeric',
       })
     : 'Oct 1, 2026';
+
+  const handleBookMySeva = () => {
+    if (donationUrl) {
+      window.open(donationUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleRegisterSeva = () => {
+    if (volunteerUrl) {
+      window.open(volunteerUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -123,16 +143,16 @@ export default function PostDetailPage() {
           {/* Main Column */}
           <div>
             <div style={{ background: '#ffffff', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-card)', overflow: 'hidden', boxShadow: 'var(--shadow-md)', marginBottom: '2rem' }}>
-              {/* Slideshow with multi badges */}
+              {/* Slideshow */}
               <div style={{ position: 'relative', width: '100%', height: '420px', background: '#000' }}>
                 <Slideshow
-                  media_urls={media_urls}
+                  media_urls={parsedMediaUrls}
                   title={title}
-                  placeholderEmoji={ngo.logo_emoji}
+                  placeholderEmoji={logoEmoji}
                 />
                 
                 <div style={{ position: 'absolute', top: '1rem', left: '1rem', zIndex: 10, display: 'flex', gap: '0.5rem' }}>
-                  {Number(is_top_needed) === 1 && (
+                  {Boolean(is_top_needed) && (
                     <div className="badge-top-needed" style={{ position: 'static' }}>
                       <span>🔥</span>
                       <span>MOST NEEDED</span>
@@ -159,7 +179,7 @@ export default function PostDetailPage() {
                     marginBottom: '1rem',
                   }}
                 >
-                  <span style={{ fontSize: '1.4rem' }}>{ngo.logo_emoji || '🏢'}</span>
+                  <span style={{ fontSize: '1.4rem' }}>{logoEmoji}</span>
                   <span>{ngo.name}</span>
                   <VerifiedBadge status={ngo.status} />
                 </Link>
@@ -182,7 +202,7 @@ export default function PostDetailPage() {
                   </span>
                 </div>
 
-                {/* Impact Stat & Unit Equation */}
+                {/* Impact Stat */}
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
                   <div
                     style={{
@@ -200,23 +220,6 @@ export default function PostDetailPage() {
                     <span>📊</span>
                     <span>{Number(impact_count || 0).toLocaleString('en-IN')} people helped so far</span>
                   </div>
-
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      background: 'var(--saffron-subtle)',
-                      color: 'var(--saffron-main)',
-                      padding: '0.55rem 1rem',
-                      borderRadius: 'var(--radius-md)',
-                      fontWeight: 700,
-                      fontSize: '0.92rem',
-                    }}
-                  >
-                    <span>🎯</span>
-                    <span>1 Unit Seva = ₹50 transparent allocation</span>
-                  </div>
                 </div>
 
                 {/* Summary */}
@@ -224,7 +227,7 @@ export default function PostDetailPage() {
                   {summary}
                 </p>
 
-                {/* Field Dispatch / Source Quote */}
+                {/* Source Quote / Dispatch */}
                 {raw_input && (
                   <div
                     style={{
@@ -254,31 +257,29 @@ export default function PostDetailPage() {
                 )}
 
                 {/* Big Action Buttons */}
-                <div style={{ display: 'grid', gridTemplateColumns: hasDonation && hasVolunteer ? '1fr 1fr' : '1fr', gap: '1rem', marginTop: '1.5rem' }}>
-                  {hasDonation && (
-                    <a
-                      href={ngo.donation_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                <div style={{ display: 'grid', gridTemplateColumns: donationUrl && volunteerUrl ? '1fr 1fr' : '1fr', gap: '1rem', marginTop: '1.5rem' }}>
+                  {donationUrl && (
+                    <button
+                      type="button"
+                      onClick={handleBookMySeva}
                       className="btn-primary"
                       style={{ padding: '1rem', fontSize: '1.05rem', justifyContent: 'center' }}
                     >
                       <span style={{ fontSize: '1.2rem' }}>💰</span>
-                      <span>Book My Seva (Direct Donation)</span>
-                    </a>
+                      <span>Book My Seva</span>
+                    </button>
                   )}
 
-                  {hasVolunteer && (
-                    <a
-                      href={ngo.google_form_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  {volunteerUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRegisterSeva}
                       className="btn-secondary"
                       style={{ padding: '1rem', fontSize: '1.05rem', justifyContent: 'center' }}
                     >
                       <span style={{ fontSize: '1.2rem' }}>📝</span>
-                      <span>Register for Seva (Volunteer)</span>
-                    </a>
+                      <span>Register for Seva</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -294,7 +295,7 @@ export default function PostDetailPage() {
               </h4>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                <span style={{ fontSize: '2rem' }}>{ngo.logo_emoji || '🏢'}</span>
+                <span style={{ fontSize: '2rem' }}>{logoEmoji}</span>
                 <div>
                   <h3 style={{ fontSize: '1.15rem' }}>{ngo.name}</h3>
                   <VerifiedBadge status={ngo.status} />
@@ -302,7 +303,7 @@ export default function PostDetailPage() {
               </div>
 
               <div style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: '0.75rem' }}>
-                🏛️ Darpan: <code>{ngo.darpan_id || 'Verified'}</code>
+                🏛️ Darpan: <code>{ngo.darpanId || ngo.darpan_id || 'Verified'}</code>
               </div>
 
               <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1.25rem' }}>

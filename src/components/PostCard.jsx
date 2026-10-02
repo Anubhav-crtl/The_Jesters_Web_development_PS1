@@ -4,6 +4,7 @@ import Slideshow from './Slideshow';
 import ProgressBar from './ProgressBar';
 import VerifiedBadge from './VerifiedBadge';
 import { useAuth } from '../context/AuthContext';
+import { parseJsonSafe } from '../api';
 
 export default function PostCard({ post }) {
   const { toggleSavePost, isPostSaved } = useAuth();
@@ -22,21 +23,39 @@ export default function PostCard({ post }) {
     ngo = {},
   } = post;
 
+  // media_urls can be a JSON string like "[\"url1\", \"url2\"]" from backend
+  const parsedMediaUrls = parseJsonSafe(media_urls, []);
+
   const isSaved = isPostSaved(id);
-  const hasDonation = funds_goal > 0 && ngo?.donation_url;
-  const hasVolunteer = volunteers_needed > 0 && ngo?.google_form_url;
+  const donationUrl = ngo?.donationUrl || ngo?.donation_url;
+  const volunteerUrl = ngo?.googleFormUrl || ngo?.google_form_url;
+  const logoEmoji = ngo?.logoEmoji || ngo?.logo_emoji || '❤️';
+
+  const handleBookMySeva = (e) => {
+    e.preventDefault();
+    if (donationUrl) {
+      window.open(donationUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleRegisterSeva = (e) => {
+    e.preventDefault();
+    if (volunteerUrl) {
+      window.open(volunteerUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   return (
     <article className="post-card">
       {/* Media Slideshow with Multi-Badges */}
       <div style={{ position: 'relative' }}>
         <Slideshow
-          media_urls={media_urls}
+          media_urls={parsedMediaUrls}
           title={title}
-          placeholderEmoji={ngo.logo_emoji || '🎗️'}
+          placeholderEmoji={logoEmoji}
         />
 
-        {Number(is_top_needed) === 1 && (
+        {Boolean(is_top_needed) && (
           <div className="badge-top-needed">
             <span>🔥</span>
             <span>MOST NEEDED</span>
@@ -46,7 +65,7 @@ export default function PostCard({ post }) {
         {/* 80G Tax Benefit Badge */}
         <div
           className="badge-80g"
-          style={{ left: Number(is_top_needed) === 1 ? '8.8rem' : '0.75rem' }}
+          style={{ left: Boolean(is_top_needed) ? '8.8rem' : '0.75rem' }}
           title="Eligible for 50% deduction under Section 80G of the Income Tax Act"
         >
           <span>🏛️</span>
@@ -72,10 +91,10 @@ export default function PostCard({ post }) {
       {/* Card Content Body */}
       <div className="post-card-body">
         {/* NGO Row */}
-        <Link to={`/ngo/${ngo.id || 1}`} className="post-ngo-row">
-          <span>{ngo.logo_emoji || '🏢'}</span>
-          <span>{ngo.name || 'Verified NGO'}</span>
-          <VerifiedBadge status={ngo.status} showText={false} />
+        <Link to={`/ngo/${ngo?.id || 1}`} className="post-ngo-row">
+          <span>{logoEmoji}</span>
+          <span>{ngo?.name || 'Verified NGO'}</span>
+          <VerifiedBadge status={ngo?.status} showText={false} />
         </Link>
 
         {/* Post Title */}
@@ -85,13 +104,13 @@ export default function PostCard({ post }) {
           </Link>
         </h3>
 
-        {/* Summary (Max 2 lines) */}
+        {/* Summary */}
         <p className="post-card-summary">{summary}</p>
 
         {/* Impact Stat */}
         <div className="post-impact-stat">
           <span>📊</span>
-          <span>{Number(impact_count || 0).toLocaleString('en-IN')} people helped so far</span>
+          <span>{Number(impact_count || 0).toLocaleString('en-IN')} people helped</span>
         </div>
 
         {/* Progress Bar (Only if funds_goal > 0) */}
@@ -101,35 +120,29 @@ export default function PostCard({ post }) {
 
         {/* Action Buttons */}
         <div className="post-card-actions">
-          <div
-            className={`post-action-buttons-row ${
-              hasDonation && hasVolunteer ? '' : 'single-col'
-            }`}
-          >
-            {hasDonation && (
-              <a
-                href={ngo.donation_url}
-                target="_blank"
-                rel="noopener noreferrer"
+          <div className="post-action-buttons-row">
+            {donationUrl && (
+              <button
+                type="button"
+                onClick={handleBookMySeva}
                 className="btn-primary"
                 style={{ fontSize: '0.85rem', padding: '0.55rem 0.6rem' }}
               >
                 <span>💰</span>
                 <span>Book My Seva</span>
-              </a>
+              </button>
             )}
 
-            {hasVolunteer && (
-              <a
-                href={ngo.google_form_url}
-                target="_blank"
-                rel="noopener noreferrer"
+            {volunteerUrl && (
+              <button
+                type="button"
+                onClick={handleRegisterSeva}
                 className="btn-secondary"
                 style={{ fontSize: '0.85rem', padding: '0.55rem 0.6rem' }}
               >
                 <span>👥</span>
                 <span>Register for Seva</span>
-              </a>
+              </button>
             )}
           </div>
 
@@ -138,7 +151,7 @@ export default function PostCard({ post }) {
             className="btn-outline"
             style={{ width: '100%', fontSize: '0.85rem', padding: '0.45rem' }}
           >
-            View Full Impact Drive →
+            View Details →
           </Link>
         </div>
       </div>

@@ -3,20 +3,21 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
+import { login as apiLogin } from '../api';
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login: contextLogin } = useAuth();
 
   const roleParam = searchParams.get('role');
   const [activeTab, setActiveTab] = useState(roleParam === 'admin' ? 'admin' : 'ngo');
 
   const [email, setEmail] = useState(
-    roleParam === 'admin' ? 'admin@bookmyseva.app' : 'ngo@feedinghands.org'
+    roleParam === 'admin' ? 'admin@bookmyseva.app' : 'feedinghands@ngo.com'
   );
   const [password, setPassword] = useState(
-    roleParam === 'admin' ? 'admin123' : 'ngo123'
+    roleParam === 'admin' ? 'admin123' : 'pass123'
   );
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,8 +29,8 @@ export default function LoginPage() {
       setEmail('admin@bookmyseva.app');
       setPassword('admin123');
     } else {
-      setEmail('ngo@feedinghands.org');
-      setPassword('ngo123');
+      setEmail('feedinghands@ngo.com');
+      setPassword('pass123');
     }
   };
 
@@ -39,16 +40,32 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await login({ email, password });
-      if (res.role === 'ADMIN') {
+      // Call backend POST /api/login directly
+      const response = await apiLogin(email, password);
+
+      if (response && response.success === false) {
+        throw new Error(response.error || 'Authentication rejected by backend');
+      }
+
+      // Sync with context
+      if (contextLogin) {
+        try {
+          await contextLogin({ email, password });
+        } catch (_) {}
+      }
+
+      const role = response.role ? response.role.toUpperCase() : '';
+
+      if (role === 'ADMIN') {
         navigate('/admin');
-      } else if (res.role === 'NGO') {
+      } else if (role === 'NGO') {
         navigate('/ngo');
       } else {
         navigate('/');
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Invalid email or password');
+      console.error('Login failed:', err);
+      setErrorMsg(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -59,7 +76,6 @@ export default function LoginPage() {
       <Header />
 
       <main className="container" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2.5rem 1.25rem' }}>
-        {/* Split-View Composition (Synthesizing Stitch + Functional UI) */}
         <div
           style={{
             display: 'grid',
@@ -97,7 +113,6 @@ export default function LoginPage() {
                 BookMySeva unites authentic grassroots organisations with transparent supporters. We operate on true zero-middleman architecture.
               </p>
 
-              {/* Pillars list */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
                   <span style={{ color: '#10b981', fontSize: '1.2rem', lineHeight: 1 }}>✓</span>
@@ -157,11 +172,10 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* Error Message */}
+            {/* Mandatory Red Error Banner */}
             {errorMsg && (
               <div className="alert-box alert-red">
-                <span>⚠️</span>
-                <span>{errorMsg}</span>
+                <span>🚨 Connection failed: {errorMsg}</span>
               </div>
             )}
 
@@ -173,7 +187,7 @@ export default function LoginPage() {
                   type="email"
                   required
                   className="form-input"
-                  placeholder={activeTab === 'admin' ? 'admin@bookmyseva.app' : 'ngo@organisation.org'}
+                  placeholder={activeTab === 'admin' ? 'admin@bookmyseva.app' : 'feedinghands@ngo.com'}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -197,7 +211,7 @@ export default function LoginPage() {
                 className="btn-primary"
                 style={{ width: '100%', padding: '0.75rem', marginTop: '0.5rem', fontSize: '0.95rem' }}
               >
-                {loading ? 'Authenticating...' : 'Sign In'}
+                {loading ? 'Authenticating with Backend...' : 'Sign In'}
               </button>
             </form>
 
@@ -222,11 +236,11 @@ export default function LoginPage() {
                   border: '1px solid var(--border-card)',
                 }}
               >
-                <strong>💡 Quick Demo Access:</strong>
+                <strong>💡 Verified Backend Test Credentials:</strong>
                 {activeTab === 'admin' ? (
                   <div>Admin: <code>admin@bookmyseva.app</code> / <code>admin123</code></div>
                 ) : (
-                  <div>NGO: <code>ngo@feedinghands.org</code> / <code>ngo123</code></div>
+                  <div>NGO: <code>feedinghands@ngo.com</code> / <code>pass123</code></div>
                 )}
               </div>
 

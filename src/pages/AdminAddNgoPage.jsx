@@ -1,37 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { createNgoAdmin } from '../api/api';
-import { useAuth } from '../context/AuthContext';
+import { createNgo } from '../api';
 
 export default function AdminAddNgoPage() {
   const navigate = useNavigate();
-  const { auth } = useAuth();
-
-  useEffect(() => {
-    if (auth?.role !== 'ADMIN') {
-      navigate('/login?role=admin');
-    }
-  }, [auth]);
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    darpan_id: '',
+    darpanId: '',
     category: 'Food',
     location: '',
-    founded_year: new Date().getFullYear(),
-    logo_emoji: '❤️',
+    foundedYear: new Date().getFullYear(),
+    logoEmoji: '❤️',
     description: '',
-    website_url: '',
-    youtube_url: '',
-    instagram_url: '',
-    donation_url: '',
-    google_form_url: '',
+    websiteUrl: '',
+    youtubeUrl: '',
+    instagramUrl: '',
+    donationUrl: '',
+    googleFormUrl: '',
     is_verified: true,
-    trust_score: 92,
+    trustScore: 92,
   });
 
   const [teamMembers, setTeamMembers] = useState([{ name: '', role: '' }]);
@@ -68,17 +60,38 @@ export default function AdminAddNgoPage() {
     setErrorMessage('');
 
     try {
+      const filteredMembers = teamMembers.filter((m) => m.name.trim() !== '');
+
       const payload = {
-        ...formData,
-        founded_year: Number(formData.founded_year),
-        trust_score: Number(formData.trust_score),
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        darpanId: formData.darpanId,
+        darpan_id: formData.darpanId,
+        category: formData.category,
+        location: formData.location,
+        foundedYear: Number(formData.foundedYear),
+        founded_year: Number(formData.foundedYear),
+        logoEmoji: formData.logoEmoji,
+        logo_emoji: formData.logoEmoji,
+        description: formData.description,
+        websiteUrl: formData.websiteUrl,
+        youtubeUrl: formData.youtubeUrl,
+        instagramUrl: formData.instagramUrl,
+        donationUrl: formData.donationUrl,
+        googleFormUrl: formData.googleFormUrl,
+        trustScore: Number(formData.trustScore),
+        trust_score: Number(formData.trustScore),
         status: formData.is_verified ? 'ACTIVE' : 'PENDING',
-        team_members: teamMembers.filter((m) => m.name.trim() !== ''),
+        teamMembers: JSON.stringify(filteredMembers),
+        team_members: JSON.stringify(filteredMembers),
+        fundsBreakdown: JSON.stringify({ programs: 50, field_work: 35, ops: 15 }),
       };
 
-      await createNgoAdmin(payload, auth?.token);
+      await createNgo(payload);
       navigate('/admin');
     } catch (err) {
+      console.error('Failed to create NGO on backend:', err);
       setErrorMessage(err.message || 'Failed to add NGO');
       setIsSubmitting(false);
     }
@@ -94,7 +107,7 @@ export default function AdminAddNgoPage() {
             <div>
               <h1 style={{ fontSize: '1.85rem' }}>Add NGO Manually (Admin)</h1>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                Directly onboard a verified organisation into the BookMySeva directory.
+                Directly onboard a verified organisation into the backend database.
               </p>
             </div>
             <Link to="/admin" className="btn-outline" style={{ fontSize: '0.85rem' }}>
@@ -102,10 +115,10 @@ export default function AdminAddNgoPage() {
             </Link>
           </div>
 
+          {/* Mandatory Red Error Banner */}
           {errorMessage && (
             <div className="alert-box alert-red">
-              <span>⚠️</span>
-              <span>{errorMessage}</span>
+              <span>🚨 Connection failed: {errorMessage}</span>
             </div>
           )}
 
@@ -150,11 +163,11 @@ export default function AdminAddNgoPage() {
                 <label>Darpan ID *</label>
                 <input
                   type="text"
-                  name="darpan_id"
+                  name="darpanId"
                   required
                   placeholder="e.g. MH/2018/0123456"
                   className="form-input"
-                  value={formData.darpan_id}
+                  value={formData.darpanId}
                   onChange={handleChange}
                 />
               </div>
@@ -235,9 +248,9 @@ export default function AdminAddNgoPage() {
                 <input
                   type="text"
                   maxLength={2}
-                  name="logo_emoji"
+                  name="logoEmoji"
                   className="form-input"
-                  value={formData.logo_emoji}
+                  value={formData.logoEmoji}
                   onChange={handleChange}
                 />
               </div>
@@ -246,11 +259,11 @@ export default function AdminAddNgoPage() {
                 <label>Initial Trust Score (%)</label>
                 <input
                   type="number"
-                  name="trust_score"
+                  name="trustScore"
                   min="50"
                   max="100"
                   className="form-input"
-                  value={formData.trust_score}
+                  value={formData.trustScore}
                   onChange={handleChange}
                 />
               </div>
@@ -278,11 +291,11 @@ export default function AdminAddNgoPage() {
                 <label>Direct Donation URL *</label>
                 <input
                   type="url"
-                  name="donation_url"
+                  name="donationUrl"
                   required
                   placeholder="https://organisation.org/donate"
                   className="form-input"
-                  value={formData.donation_url}
+                  value={formData.donationUrl}
                   onChange={handleChange}
                 />
               </div>
@@ -291,11 +304,11 @@ export default function AdminAddNgoPage() {
                 <label>Volunteer Form URL *</label>
                 <input
                   type="url"
-                  name="google_form_url"
+                  name="googleFormUrl"
                   required
-                  placeholder="https://forms.google.com/..."
+                  placeholder="https://forms.gle/..."
                   className="form-input"
-                  value={formData.google_form_url}
+                  value={formData.googleFormUrl}
                   onChange={handleChange}
                 />
               </div>
@@ -311,7 +324,7 @@ export default function AdminAddNgoPage() {
                 className="btn-primary"
                 style={{ padding: '0.75rem 2rem' }}
               >
-                {isSubmitting ? 'Saving NGO...' : 'Save NGO'}
+                {isSubmitting ? 'Saving to Backend...' : 'Save NGO'}
               </button>
             </div>
           </form>

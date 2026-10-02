@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import PostCard from '../components/PostCard';
-import { createPost, getNgoMe } from '../api/api';
+import { createPost, getAllNgos } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 export default function NgoAddPostPage() {
@@ -14,9 +14,21 @@ export default function NgoAddPostPage() {
   useEffect(() => {
     if (auth?.role !== 'NGO') {
       navigate('/login?role=ngo');
-    } else {
-      getNgoMe(auth?.token, auth?.ngoId).then((data) => setNgoInfo(data));
+      return;
     }
+    getAllNgos()
+      .then((allNgos) => {
+        const loggedEmail = auth?.user?.email?.toLowerCase();
+        const found = allNgos.find(
+          (n) =>
+            String(n.id) === String(auth?.ngoId) ||
+            n.email?.toLowerCase() === loggedEmail
+        ) || allNgos[0];
+        setNgoInfo(found);
+      })
+      .catch((err) => {
+        console.error('Failed to load NGO info from backend:', err);
+      });
   }, [auth]);
 
   const [formData, setFormData] = useState({
@@ -73,20 +85,28 @@ export default function NgoAddPostPage() {
     setErrorMessage('');
 
     try {
+      const validUrls = mediaUrls.filter((url) => url.trim().length > 0);
+
       const payload = {
-        ...formData,
-        ngo_id: Number(auth?.ngoId || ngoInfo?.id || 1),
+        ngo_id: Number(ngoInfo?.id || auth?.ngoId || 1),
+        title: formData.title,
+        summary: formData.summary,
+        raw_input: formData.raw_input,
+        category: formData.category,
         impact_count: Number(formData.impact_count),
         funds_goal: Number(formData.funds_goal),
         funds_raised: Number(formData.funds_raised),
         volunteers_needed: Number(formData.volunteers_needed),
-        is_top_needed: formData.is_top_needed ? 1 : 0,
-        media_urls: mediaUrls.filter((url) => url.trim().length > 0),
+        is_top_needed: formData.is_top_needed ? true : false,
+        status: formData.status,
+        event_date: formData.event_date,
+        media_urls: JSON.stringify(validUrls),
       };
 
-      await createPost(payload, auth?.token);
+      await createPost(payload);
       navigate('/ngo');
     } catch (err) {
+      console.error('Failed to publish post to backend:', err);
       setErrorMessage(err.message || 'Failed to publish post');
       setIsSubmitting(false);
     }
@@ -104,14 +124,14 @@ export default function NgoAddPostPage() {
     media_urls: mediaUrls.filter(Boolean),
     status: formData.status,
     event_date: formData.event_date,
-    is_top_needed: formData.is_top_needed ? 1 : 0,
+    is_top_needed: formData.is_top_needed ? true : false,
     ngo: ngoInfo || {
       id: 1,
       name: 'Your Verified NGO',
-      logo_emoji: '🏢',
+      logoEmoji: '🏢',
       status: 'ACTIVE',
-      donation_url: 'https://example.org/donate',
-      google_form_url: 'https://forms.google.com/volunteer',
+      donationUrl: 'https://example.org/donate',
+      googleFormUrl: 'https://forms.google.com/volunteer',
     },
   };
 
@@ -133,20 +153,17 @@ export default function NgoAddPostPage() {
           </Link>
         </div>
 
+        {/* Mandatory Red Error Banner */}
         {errorMessage && (
           <div className="alert-box alert-red">
-            <span>⚠️</span>
-            <span>{errorMessage}</span>
+            <span>🚨 Connection failed: {errorMessage}</span>
           </div>
         )}
 
-        {/* 65/35 Two-Column Architecture */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.75fr 1fr', gap: '2rem', alignItems: 'start' }}>
-          {/* Left Form */}
+          {/* Form */}
           <div style={{ background: '#ffffff', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-card)', padding: '2rem', boxShadow: 'var(--shadow-sm)' }}>
             <form onSubmit={handleSubmit}>
-              <input type="hidden" name="ngo_id" value={auth?.ngoId || 1} />
-              
               <div
                 style={{
                   background: 'var(--emerald-subtle)',
@@ -164,7 +181,7 @@ export default function NgoAddPostPage() {
               >
                 <span>✅</span>
                 <span>
-                  Publishing on behalf of: {ngoInfo?.logo_emoji} {ngoInfo?.name} (Darpan: {ngoInfo?.darpan_id})
+                  Publishing on behalf of: {ngoInfo?.logoEmoji || ngoInfo?.logo_emoji} {ngoInfo?.name} (Darpan: {ngoInfo?.darpanId || ngoInfo?.darpan_id})
                 </span>
               </div>
 
@@ -353,7 +370,7 @@ export default function NgoAddPostPage() {
                   className="btn-primary"
                   style={{ padding: '0.75rem 2rem' }}
                 >
-                  {isSubmitting ? 'Publishing...' : 'Publish Activity to Live Feed'}
+                  {isSubmitting ? 'Publishing to Backend...' : 'Publish Activity to Live Feed'}
                 </button>
               </div>
             </form>
